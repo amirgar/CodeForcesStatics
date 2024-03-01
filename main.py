@@ -1,7 +1,11 @@
 import logging
 from telegram.ext import Application, MessageHandler, CommandHandler, filters
+from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
 from config import BOT_TOKEN
+import sqlite3
 
+conn = sqlite3.connect('data/users.db', check_same_thread=False)
+cursor = conn.cursor()
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.DEBUG
 )
@@ -9,11 +13,38 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# Определяем функцию-обработчик сообщений.
-# У неё два параметра, updater, принявший сообщение и контекст - дополнительная информация о сообщении.
+""" В этом разделе написаны подробно все кнопки """
+entrance_keyboard = [['Sign In', 'Sign Up']]
+entrance_markup = ReplyKeyboardMarkup(entrance_keyboard, one_time_keyboard=False)
+
+
+""" В этом разделе написаны подробно все функции """
+def database_values(user_id: int, name: str, surname: str, handle: str, login: str, password: str):
+    """Функция для работы с базой данных"""
+    cursor.execute('INSERT INTO users_info (user_id, name, surname, handle, login, password) VALUES (?, ?, ?, ?, ?, ?)',
+                   (user_id, name, surname, handle, login, password))
+
+async def close_keyboard(update, context):
+    # Закрывает клавиатуру
+    await update.message.reply_text(
+        "Ok",
+        reply_markup=ReplyKeyboardRemove()
+    )
+
+
+async def get_name(update, context):
+    """ Получает имя при регистрации """
+    await update.message.reply_text(
+        "Введите имя: ")
+
+
 async def random_text(update, context):
     """ Будет выводить в случае фразы, непонятной боту """
-    await update.message.reply_text("Простите я Вас не понимаю. Советую проверить правильность написания"
+    if update.message.text == 'Sign In':
+        name, surname,
+        await get_name(update, context)
+    else:
+        await update.message.reply_text("Простите я Вас не понимаю. Советую проверить правильность написания"
                                     "названия команды. Если остались вопросы вызовить команду /help")
 
 
@@ -21,7 +52,9 @@ async def start(update, context):
     """ Отправляет сообщение когда получена команда /start """
     user = update.effective_user
     await update.message.reply_html(
-        rf"Привет {user.mention_html()}! Я эхо-бот. Напишите мне что-нибудь, и я пришлю это назад!",
+        rf"Привет {user.mention_html()}! Я могу вести удобно статистику твоего аккаунта Codeforces. Если впервые здесь "
+        rf"нажми на кнопку 'Регистрация', а если уже есть аккаунт то войди в него ⬇",
+        reply_markup=entrance_markup
     )
 
 
@@ -34,22 +67,14 @@ async def help(update, context):
 
 
 def main():
-    # Создаём объект Application.
-    # Вместо слова "TOKEN" надо разместить полученный от @BotFather токен
     application = Application.builder().token(BOT_TOKEN).build()
-
-    # Создаём обработчик сообщений типа filters.TEXT
-    # После регистрации обработчика в приложении
-    # эта асинхронная функция будет вызываться при получении сообщения
-    # с типом "текст", т. е. текстовых сообщений.
     text_handler = MessageHandler(filters.TEXT & ~filters.COMMAND, random_text)
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help))
-    # Регистрируем обработчики в приложении.
+    application.add_handler(CommandHandler("get_name", get_name))
+    application.add_handler(CommandHandler("close", close_keyboard))
     application.add_handler(text_handler)
-
-    # Запускаем приложение.
     application.run_polling()
 
 
