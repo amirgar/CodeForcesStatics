@@ -5,6 +5,7 @@ from telegram import ReplyKeyboardMarkup
 from telegram import ReplyKeyboardRemove
 from telegram.ext import CommandHandler
 import sqlite3
+import os
 
 conn = sqlite3.connect('data/users.db', check_same_thread=False)
 cursor = conn.cursor()
@@ -20,6 +21,8 @@ logger = logging.getLogger(__name__)
 
 entrance_keyboard = [['/SignIn', '/Registration']]
 entrance_markup = ReplyKeyboardMarkup(entrance_keyboard, one_time_keyboard=False)
+success_registration_keyboard = [['/ready']]
+success_registration_markup = ReplyKeyboardMarkup(success_registration_keyboard, one_time_keyboard=False)
 user_info = []
 
 
@@ -27,7 +30,7 @@ async def start(update, context):
     user = update.effective_user
     await update.message.reply_html(
         rf"Привет {user.mention_html()}! Я могу вести удобно статистику твоего аккаунта Codeforces. Если впервые здесь "
-        rf"нажми на кнопку 'Регистрация', а если уже есть аккаунт то войди в него ⬇",
+        rf"нажми на кнопку '/Registration', а если уже есть аккаунт то войди в него ⬇",
         reply_markup=entrance_markup
     )
 
@@ -54,6 +57,14 @@ async def sign_in_third(update, context):
     global user_info
     user_info.append(password)
     print(f'!!!!!!!!!!!!!!!!!!!!!!!!! {user_info} !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+    info = cursor.execute('SELECT * FROM users WHERE login = ? AND password = ?', (user_info[0], user_info[1],))
+    if info.fetchone():
+        await update.message.reply_html("Вход прошел успешно! Если готов использовать меня нажми кнопку начать ⬇",
+                                        reply_markup=success_registration_markup
+                                        )
+    else:
+        await update.message.reply_text("Неправильно введен логин или пароль, введите команду /SignIn "
+                                        "заново для повторного прохождения регистрации")
     return ConversationHandler.END
 
 
@@ -106,7 +117,12 @@ async def registration_sixth(update, context):
     global user_info
     user_info.append(password)
     print(f'!!!!!!!!!!!!!!!!!!!!!!!!! {user_info} !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+    cursor.execute('INSERT INTO users (surname, name, handle, login, password) VALUES (?, ?, ?, ?, ?)',
+                   (user_info[1], user_info[0], user_info[2], user_info[3], user_info[4]))
+    conn.commit()
+    await update.message.reply_text(f"Регистрация прошла успешна!")
     return ConversationHandler.END
+
 
 async def stop(update, context):
     await update.message.reply_text("Всего доброго!")
