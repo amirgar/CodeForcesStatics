@@ -3,9 +3,47 @@ from telegram.ext import Application, MessageHandler, filters, ConversationHandl
 from config import BOT_TOKEN
 from telegram import ReplyKeyboardMarkup
 from telegram.ext import CommandHandler
-from functions.user_info import get_base_information
+import requests
 import sqlite3
 import translators as ts
+
+
+def get_base_information(handle):
+    """ Ответ полчуим в формате:
+            {
+        "status": "OK",
+        "result": [
+            {
+                "lastName": "Gareev",
+                "country": "Россия",
+                "lastOnlineTimeSeconds": 1709322224,
+                "city": "Набережные Челны",
+                "rating": 1027,
+                "friendOfCount": 7,
+                "titlePhoto": "https://userpic.codeforces.org/2128075/title/3130227c20c51c60.jpg",
+                "handle": "gareeeeeeeeeeeeeeeev",
+                "avatar": "https://userpic.codeforces.org/2128075/avatar/70c33308f7adddc1.jpg",
+                "firstName": "Amir",
+                "contribution": 0,
+                "organization": "МАОУ Лицей № 78",
+                "rank": "новичок",
+                "maxRating": 1027,
+                "registrationTimeSeconds": 1626624570,
+                "maxRank": "новичок"
+            }
+        ]
+    }
+    """
+    link = f'https://codeforces.com/api/user.info?handles={handle}'
+    response = requests.get(link)
+    if response:
+        return response.json()
+    else:
+        print("Ошибка выполнения запроса:")
+        print(link)
+        print("Http статус:", response.status_code, "(", response.reason, ")")
+        return None
+
 
 conn = sqlite3.connect('data/users.db', check_same_thread=False)
 cursor = conn.cursor()
@@ -133,32 +171,42 @@ async def registration_sixth(update, context):
     return ConversationHandler.END
 
 
-async def stop(update, context):
-    await update.message.reply_text("Всего доброго!")
-    return ConversationHandler.END
-
-
 async def ready_first(update, context):
     global user_handle
     handle_info = cursor.execute('SELECT * FROM users WHERE login = ? AND password = ?', (login, password,))
     handle_info = handle_info.fetchall()
     user_handle = handle_info[0][5]
     info_json = get_base_information(user_handle)
+    await context.bot.send_photo(chat_id=update.message.chat_id, photo=info_json['result'][0]['avatar'])
     await update.message.reply_text(
         f"Пользователь: {info_json['result'][0]["lastName"]} {info_json['result'][0]["firstName"]}\n"
-        f"Местоположение: {info_json['result'][0]['country']} {info_json['result'][0]['city']} {info_json['result'][0]['organization']}\n"
+        f"Местоположение: {ts.translate_text(info_json['result'][0]['country'], to_language='ru')} "
+        f"{ts.translate_text(info_json['result'][0]['city'], to_language='ru')} \n"
+        f"Организация: {ts.translate_text(info_json['result'][0]['organization'], to_language='ru')}\n"
         f"Вклад: {info_json['result'][0]['contribution']}\n"
         f"Количество друзей: {info_json['result'][0]['friendOfCount']}\n"
         f"Ранг: {ts.translate_text(info_json['result'][0]['rank'], to_language='ru')}\n"
         f"Рейтинг: {info_json['result'][0]['rating']}\n"
         f"Максимальный рейтинг: {info_json['result'][0]['maxRating']}\n")
+
     return 1
 
 
 async def ready_second(update, context):
+    print("OK")
+    await update.message.reply_text(f"Пока что нет новых уведомлений от Codeforces")
+    return 2
+
+
+async def ready_third(update, context):
+    print("OK")
     await update.message.reply_text(f"Пока что нет новых уведомлений от Codeforces")
     return ConversationHandler.END
 
+
+async def stop(update, context):
+    await update.message.reply_text("Всего доброго!")
+    return ConversationHandler.END
 
 def main():
     application = Application.builder().token(BOT_TOKEN).build()
@@ -193,6 +241,7 @@ def main():
 
         states={
             1: [MessageHandler(filters.TEXT & ~filters.COMMAND, ready_second)],
+            2: [MessageHandler(filters.TEXT & ~filters.COMMAND, ready_third)],
         },
 
         fallbacks=[CommandHandler('stop', stop)]

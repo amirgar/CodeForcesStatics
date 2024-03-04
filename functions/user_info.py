@@ -1,8 +1,11 @@
 import json
 import requests
+import logging
 import time
+from config import BOT_TOKEN
 import os
 
+channel = "@codeforces_official"
 
 def get_base_information(handle):
     """ Ответ полчуим в формате:
@@ -41,5 +44,14 @@ def get_base_information(handle):
         return None
 
 
+def check_posts(TOKEN, CHANNEL_ID, limit=2) -> None:
+    print(f"https://api.telegram.org/bot{TOKEN}/getChatHistory?chat_id={CHANNEL_ID}&limit={limit}")
+    response = requests.get(f"https://api.telegram.org/bot{TOKEN}/getChatHistory?chat_id={CHANNEL_ID}&limit={limit}")
+    data = response.json()
+    for message in data["result"]["messages"]:
+        if "will take place" in message.get("message", ""):
+            print(message.get("message", ""))
+
+
 if __name__ == "__main__":
-    get_base_information('gareeeeeeeeeeeeeeeev')
+    check_posts(BOT_TOKEN, channel)
