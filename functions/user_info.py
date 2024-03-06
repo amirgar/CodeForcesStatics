@@ -44,14 +44,50 @@ def get_base_information(handle):
         return None
 
 
-def check_posts(TOKEN, CHANNEL_ID, limit=2) -> None:
-    print(f"https://api.telegram.org/bot{TOKEN}/getChatHistory?chat_id={CHANNEL_ID}&limit={limit}")
-    response = requests.get(f"https://api.telegram.org/bot{TOKEN}/getChatHistory?chat_id={CHANNEL_ID}&limit={limit}")
-    data = response.json()
-    for message in data["result"]["messages"]:
-        if "will take place" in message.get("message", ""):
-            print(message.get("message", ""))
+def get_statics() -> list:
+    global user_handle
+    user_handle = 'gareeeeeeeeeeeeeeeev'
+    l = 0
+    r = 10000
+    #  Будем использовать бинарный поиск для оптимизации процесса
+    while (r - l) > 1:
+        mid = (l + r) // 2
+        link = f'https://codeforces.com/api/user.status?handle={user_handle}&from={mid}&count=25'
+        response = requests.get(link)
+        if response:
+            info = response.json()
+            if len(info["result"]) != 25:
+                r = mid
+            else:
+                l = mid
+        else:
+            print("Ошибка выполнения запроса:")
+            print(link)
+            print("Http статус:", response.status_code, "(", response.reason, ")")
+            return None
+
+    left = l
+    link = f'https://codeforces.com/api/user.status?handle={user_handle}&from={left}&count=25'
+    info = requests.get(link).json()
+    tasks = info["result"]
+    tasks_set = set()
+    verdicts = dict()
+    rating = dict()
+    for task in tasks:
+        tasks_set.add(task['problem']['name'])
+        if task['verdict'] not in verdicts:
+            verdicts[task['verdict']] = 1
+        else:
+            verdicts[task['verdict']] += 1
+        try:
+            if task['problem']['rating'] not in rating:
+                rating[task['problem']['rating']] = 1
+            else:
+                rating[task['problem']['rating']] += 1
+        except:
+            continue
+    return [tasks_set, verdicts, rating]
 
 
 if __name__ == "__main__":
-    check_posts(BOT_TOKEN, channel)
+    pass
