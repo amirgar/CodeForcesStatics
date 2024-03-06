@@ -60,7 +60,8 @@ logger = logging.getLogger(__name__)
 
 success_registration_keyboard = [['/ready']]
 success_registration_markup = ReplyKeyboardMarkup(success_registration_keyboard, one_time_keyboard=False)
-ready_function_keyboard = [['/statics', '/random_task']]
+ready_function_keyboard = [['/statics', '/random_task'],
+                           ['/get_user_info', '/events']]
 ready_function_markup = ReplyKeyboardMarkup(ready_function_keyboard, one_time_keyboard=False)
 
 
@@ -119,7 +120,7 @@ async def statics_get_info(update, context):
 
 
 async def statics(update, context):
-    await update.message.reply_text("Готовлю Вашу статистику, процесс займет от 30 секунд до 2 минут. "
+    await update.message.reply_text("Готовлю Вашу статистику, "
                                     "Постараюсь как можно быстрее...")
     handle_info = cursor.execute('SELECT * FROM users WHERE id = ?', (update.message.text,))
     handle_info = handle_info.fetchall()
@@ -210,11 +211,34 @@ async def task_get(update, context):
         tasks = info["result"]["problems"]
         n = random.randint(0, len(tasks))
         res = f'https://codeforces.com/contest/{tasks[n]['contestId']}/problem/{tasks[n]['index']}'
-        await update.message.reply_text(f'Ссылка на задачу: {res}.)
+        await update.message.reply_text(f'Ссылка на задачу: {res}.')
     await update.message.reply_html(f'Выберите функцию для продолжения работы (при различных возможных сбоях в работе, забаньте бота, а потом начните работу с ним снова): ',
                                     reply_markup=ready_function_markup)
     return ConversationHandler.END
 
+
+async def user_get(update, context):
+    await update.message.reply_text("Введите хендл пользователя: ")
+    return 1
+
+
+async def user_info(update, context):
+    user_handle = update.message.text
+    info_json = get_base_information(user_handle)
+    await context.bot.send_photo(chat_id=update.message.chat_id, photo=info_json['result'][0]['titlePhoto'])
+    await update.message.reply_text(
+        f"Пользователь: {info_json['result'][0]["lastName"]} {info_json['result'][0]["firstName"]}\n"
+        f"Местоположение: {ts.translate_text(info_json['result'][0]['country'], to_language='ru')} "
+        f"{ts.translate_text(info_json['result'][0]['city'], to_language='ru')} \n"
+        f"Организация: {ts.translate_text(info_json['result'][0]['organization'], to_language='ru')}\n"
+        f"Вклад: {info_json['result'][0]['contribution']}\n"
+        f"Количество друзей: {info_json['result'][0]['friendOfCount']}\n"
+        f"Ранг: {ts.translate_text(info_json['result'][0]['rank'], to_language='ru')}\n"
+        f"Рейтинг: {info_json['result'][0]['rating']}\n"
+        f"Максимальный рейтинг: {info_json['result'][0]['maxRating']}\n")
+    await update.message.reply_html(f'Выберите функцию для продолжения работы (при различных возможных сбоях в работе, забаньте бота, а потом начните работу с ним снова): ',
+                                    reply_markup=ready_function_markup)
+    return ConversationHandler.END
 
 def main():
     application = Application.builder().token(BOT_TOKEN).build()
@@ -259,10 +283,21 @@ def main():
         fallbacks=[CommandHandler('stop', stop)]
     )
 
+    get_user_info = ConversationHandler(
+        entry_points=[CommandHandler('get_user_info', user_get)],
+
+        states={
+            1: [MessageHandler(filters.TEXT & ~filters.COMMAND, user_info)],
+        },
+
+        fallbacks=[CommandHandler('stop', stop)]
+    )
+
     application.add_handler(start)
     application.add_handler(ready)
     application.add_handler(static)
     application.add_handler(random_task)
+    application.add_handler(get_user_info)
     application.add_handler(CommandHandler('stop', stop))
     application.run_polling()
 
