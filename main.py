@@ -61,7 +61,8 @@ logger = logging.getLogger(__name__)
 success_registration_keyboard = [['/ready']]
 success_registration_markup = ReplyKeyboardMarkup(success_registration_keyboard, one_time_keyboard=False)
 ready_function_keyboard = [['/statics', '/random_task'],
-                           ['/get_user_info', '/events']]
+                           ['/get_user_info', '/events'],
+                           ['/stop']]
 ready_function_markup = ReplyKeyboardMarkup(ready_function_keyboard, one_time_keyboard=False)
 
 
@@ -240,6 +241,21 @@ async def user_info(update, context):
                                     reply_markup=ready_function_markup)
     return ConversationHandler.END
 
+async def get_contests(update, context):
+    await update.message.reply_text("Работаю над запросом...")
+    link = 'https://codeforces.com/api/contest.list?gym=false'
+    info = requests.get(link).json()
+    info = info['result']
+    res = ""
+    for el in info:
+        if el['phase'] != 'BEFORE':
+            break
+        else:
+            res += f"'{el['name']}\n'"
+    await update.message.reply_text(f"Предстоящие контесты:\n{res}")
+    await update.message.reply_html(f'Выберите функцию для продолжения работы (при различных возможных сбоях в работе, забаньте бота, а потом начните работу с ним снова): ',
+                                    reply_markup=ready_function_markup)
+
 def main():
     application = Application.builder().token(BOT_TOKEN).build()
 
@@ -299,6 +315,7 @@ def main():
     application.add_handler(random_task)
     application.add_handler(get_user_info)
     application.add_handler(CommandHandler('stop', stop))
+    application.add_handler(CommandHandler('events', get_contests))
     application.run_polling()
 
 
