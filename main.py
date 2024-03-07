@@ -294,6 +294,18 @@ async def get_result(update, context):
                                     reply_markup=ready_function_markup)
     return ConversationHandler.END
 
+async def help(update, context):
+    await update.message.reply_text('Функция /statics выводит всю вашу статистику за ваши последние 100 посылок\n'
+                                    'Функция /random_task вводится категория задачи и бот выводит любуб раномную задачу из архива Codeforces\n'
+                                    'Функция /get_user_info выводит информацию о пользователе Codeforces\n'
+                                    'Функция /events выводит ближайшие контесты на сайте Codeforces\n'
+                                    'Функция /get_result выводит результат последнего контеста по хендлу пользователя\n'
+                                    '/stop приостанавливает работу бота\n'
+                                    '/help выводит краткую инструкцию\n'
+                                    'Ваш уникальный id нужен для комфортной работы с ботом\n'
+                                    'Если у Вас возник вопрос или Вы нашли баг, то напишите @gareeeev')
+    await update.message.reply_html(f'Выберите функцию для продолжения работы (при различных возможных сбоях в работе, забаньте бота, а потом начните работу с ним снова): ',
+                                    reply_markup=ready_function_markup)
 
 def main():
     application = Application.builder().token(BOT_TOKEN).build()
@@ -360,6 +372,7 @@ def main():
 
     application.add_handler(start)
     application.add_handler(ready)
+    application.add_handler(CommandHandler('help', help))
     application.add_handler(static)
     application.add_handler(random_task)
     application.add_handler(get_user_info)
