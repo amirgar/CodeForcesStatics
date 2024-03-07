@@ -62,7 +62,8 @@ success_registration_keyboard = [['/ready']]
 success_registration_markup = ReplyKeyboardMarkup(success_registration_keyboard, one_time_keyboard=False)
 ready_function_keyboard = [['/statics', '/random_task'],
                            ['/get_user_info', '/events'],
-                           ['/stop']]
+                           ['/get_result'],
+                           ['/stop', '/help']]
 ready_function_markup = ReplyKeyboardMarkup(ready_function_keyboard, one_time_keyboard=False)
 
 
@@ -256,6 +257,44 @@ async def get_contests(update, context):
     await update.message.reply_html(f'Выберите функцию для продолжения работы (при различных возможных сбоях в работе, забаньте бота, а потом начните работу с ним снова): ',
                                     reply_markup=ready_function_markup)
 
+
+async def get_result_get(update, context):
+    await update.message.reply_text("Введите хендл пользователя, результаты которого вы хотите узнать: ")
+    return 1
+
+
+async def get_result(update, context):
+    handle = update.message.text
+    await update.message.reply_text("Работаю над запросом...")
+    link = 'https://codeforces.com/api/contest.list?gym=false'
+    info = requests.get(link).json()
+    info = info['result']
+    id = 0
+    for el in info:
+        if el['phase'] != 'BEFORE' and "Codeforces" in el["name"]:
+            id = el['id']
+            break
+
+    link = f'https://codeforces.com/api/contest.standings?contestId={id}&handles={handle}'
+    info = requests.get(link).json()['result']
+    if len(info["rows"]) == 0:
+        await update.message.reply_text('Данный пользователь не участвовал в последнем раунде Codeforces')
+    else:
+        print(info)
+        await update.message.reply_text(f'{info['contest']['name']}, пользователь {handle}: ')
+        await update.message.reply_text(f'Итоговое место: {info["rows"][0]["rank"]}\n'
+                                        f'Количество набранных очков: {info["rows"][0]['points']}')
+        counter = 0
+        res = "Разбаловка: \n"
+        for task in info['rows'][0]['problemResults']:
+            res += f'Task {chr(65 + counter)}: {task['points']}\n'
+            counter += 1
+        await update.message.reply_text(res)
+    await update.message.reply_html(f'Выберите функцию для продолжения работы (при различных возможных сбоях в работе, забаньте бота, а потом начните работу с ним снова): ',
+                                    reply_markup=ready_function_markup)
+    return ConversationHandler.END
+
+
 def main():
     application = Application.builder().token(BOT_TOKEN).build()
 
@@ -309,11 +348,22 @@ def main():
         fallbacks=[CommandHandler('stop', stop)]
     )
 
+    get_resultt = ConversationHandler(
+        entry_points=[CommandHandler('get_result', get_result_get)],
+
+        states={
+            1: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_result)],
+        },
+
+        fallbacks=[CommandHandler('stop', stop)]
+    )
+
     application.add_handler(start)
     application.add_handler(ready)
     application.add_handler(static)
     application.add_handler(random_task)
     application.add_handler(get_user_info)
+    application.add_handler(get_resultt)
     application.add_handler(CommandHandler('stop', stop))
     application.add_handler(CommandHandler('events', get_contests))
     application.run_polling()
